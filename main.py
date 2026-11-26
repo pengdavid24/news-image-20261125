@@ -1,44 +1,43 @@
-"""Write the 25 November 2026 world-news summary image to /output/entry.png.
+#!/usr/bin/env python3
+"""Reproduce the news-image-20261125 entry image.
 
-The entry is a single image: entry.png, a 1024x1024 infographic summing up
-the day's world news (tankers hit in the Strait of Hormuz, Houthis hitting
-a Saudi refinery, US tariffs on 14 nations, Huawei found guilty, Pakistan's
-first astronaut aboard Shenzhou-24, and the Australia-Solomon Islands
-Pacific pact). This program just copies that image to the output path the
-grader reads, so the run is byte-for-byte deterministic.
+The finished image lives next to this script as entry.png. Running this
+program copies it into the harness output directory and proves the copy
+is byte-for-byte identical to the source.
 """
 
 import hashlib
 import os
 import shutil
 import sys
+from pathlib import Path
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SOURCE = os.path.join(HERE, "entry.png")
-OUTPUT_DIR = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-OUTPUT = os.path.join(OUTPUT_DIR, "entry.png")
+SOURCE = Path(__file__).resolve().with_name("entry.png")
 
 
-def sha256(path):
-    """SHA-256 of a file, read in full (the image is small)."""
+def digest(path):
+    h = hashlib.sha256()
     with open(path, "rb") as f:
-        return hashlib.sha256(f.read()).hexdigest()
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
-def main() -> int:
-    if not os.path.isfile(SOURCE):
-        print(f"missing source image: {SOURCE}", file=sys.stderr)
+def main():
+    if not SOURCE.is_file():
+        print(f"error: {SOURCE} not found", file=sys.stderr)
+        return 2
+    out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    target = out_dir / "entry.png"
+    shutil.copyfile(SOURCE, target)
+    print(f"wrote {target} ({target.stat().st_size} bytes)")
+    if digest(SOURCE) != digest(target):
+        print("error: output does not match entry.png", file=sys.stderr)
         return 1
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    shutil.copyfile(SOURCE, OUTPUT)
-    size = os.path.getsize(OUTPUT)
-    print(f"wrote {OUTPUT} ({size} bytes)")
-    # The copy must be exact: same bytes in, same bytes out.
-    if sha256(SOURCE) != sha256(OUTPUT):
-        print("copy mismatch: output differs from source", file=sys.stderr)
-        return 1
+    print("sha256 verified: output is identical to entry.png")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
